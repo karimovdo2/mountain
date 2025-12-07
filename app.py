@@ -321,4 +321,6 @@ if df_raw is not None:
                 dy_step=dy_step
             )
             st.pyplot(fig)
+            plt.close(fig)  # важно: освобождаем память под фигуру
+
 
