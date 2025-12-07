@@ -27,6 +27,10 @@ default_csv_path = "походы.csv"
 uploaded_file = None
 if csv_source == "Загрузить CSV":
     uploaded_file = st.sidebar.file_uploader("Загрузите CSV с походами", type=["csv"])
+    
+    # NEW: кликабельное слово "Инструкции" с картинкой scrin.png
+    with st.sidebar.expander("Инструкции"):
+        st.image("scrin.png", use_column_width=True)
 
 mountains_dir = st.sidebar.text_input(
     "Папка с PNG-горами",
