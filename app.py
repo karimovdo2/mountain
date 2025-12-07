@@ -7,7 +7,6 @@ from glob import glob
 import streamlit as st
 import pathlib
 
-
 st.set_page_config(page_title="Горный год", layout="wide")
 
 st.title("Горный год из Garmin")
@@ -17,6 +16,8 @@ st.markdown(
     Каждая вершина — PNG-изображение горы, масштабированное по высоте."""
 )
 
+# ---------- Сайдбар: источник данных и настройки ----------
+
 st.sidebar.header("Данные")
 csv_source = st.sidebar.radio(
     "Источник данных:",
@@ -25,12 +26,20 @@ csv_source = st.sidebar.radio(
 
 default_csv_path = "походы.csv"
 uploaded_file = None
+
 if csv_source == "Загрузить CSV":
     uploaded_file = st.sidebar.file_uploader("Загрузите CSV с походами", type=["csv"])
-    
-    # NEW: кликабельное слово "Инструкции" с картинкой scrin.png
+
+    # Инструкции со скрином
     with st.sidebar.expander("Инструкции"):
-        st.image("scrin.png", use_column_width=True)
+        img_path = pathlib.Path("scrin.png")
+        if img_path.is_file():
+            st.image(str(img_path), use_column_width=True)
+        else:
+            st.write(
+                "Положите файл **scrin.png** в ту же папку, что и `app.py`, "
+                "чтобы здесь появилась картинка с инструкцией."
+            )
 
 mountains_dir = st.sidebar.text_input(
     "Папка с PNG-горами",
@@ -78,18 +87,18 @@ dy_step = st.sidebar.slider(
     step=10
 )
 
-@st.cache_data
-def load_data_from_path(path):
-    df = pd.read_csv(path, encoding="utf-8-sig")
-    return df
+# ---------- Работа с данными ----------
 
 @st.cache_data
-def load_data_from_uploaded(file):
-    df = pd.read_csv(file, encoding="utf-8-sig")
-    return df
+def load_data_from_path(path: str) -> pd.DataFrame:
+    return pd.read_csv(path, encoding="utf-8-sig")
 
 @st.cache_data
-def prepare_dataframe(df_raw):
+def load_data_from_uploaded(file) -> pd.DataFrame:
+    return pd.read_csv(file, encoding="utf-8-sig")
+
+@st.cache_data
+def prepare_dataframe(df_raw: pd.DataFrame) -> pd.DataFrame:
     df = df_raw.copy()
     if "Дата" not in df.columns:
         raise ValueError("В CSV нет столбца 'Дата'")
@@ -101,15 +110,17 @@ def prepare_dataframe(df_raw):
 
     df["max_alt"] = (
         df["Максимальная высота"]
-          .astype(str)
-          .str.replace(",", "", regex=False)
-          .astype(float)
+        .astype(str)
+        .str.replace(",", "", regex=False)
+        .astype(float)
     )
     df = df.sort_values("Дата")
     return df
 
+# ---------- Загрузка PNG-гор ----------
+
 @st.cache_resource
-def load_mountain_images(mountains_dir):
+def load_mountain_images(mountains_dir: str):
     pattern = str(pathlib.Path(mountains_dir) / "*.png")
     paths = sorted(glob(pattern))[:7]
     if not paths:
@@ -123,9 +134,11 @@ def load_mountain_images(mountains_dir):
         if mask_rows.any():
             top = np.argmax(mask_rows)
             bottom = len(mask_rows) - 1 - np.argmax(mask_rows[::-1])
-            img = img[top:bottom+1, :, :]
+            img = img[top:bottom + 1, :, :]
         imgs.append(img)
     return imgs
+
+# ---------- Вспомогательные функции для графика ----------
 
 def month_year_formatter(x, pos=None):
     dt = mdates.num2date(x)
@@ -134,10 +147,15 @@ def month_year_formatter(x, pos=None):
     else:
         return dt.strftime('%b')
 
-def create_mountain_figure(df, mountain_imgs,
-                           width_ref_days=25,
-                           dx_thr=8, dy_thr=150,
-                           base_offset=80, dy_step=120):
+def create_mountain_figure(
+    df: pd.DataFrame,
+    mountain_imgs,
+    width_ref_days: float = 25,
+    dx_thr: float = 8,
+    dy_thr: float = 150,
+    base_offset: float = 80,
+    dy_step: float = 120
+):
     dates = df["Дата"].to_numpy()
     dates_num = mdates.date2num(dates)
     alts = df["max_alt"].to_numpy()
@@ -212,8 +230,7 @@ def create_mountain_figure(df, mountain_imgs,
 
         label_positions.append((text_x, text_y))
 
-    dates_num_all = dates_num
-    ax.set_xlim(dates_num_all.min() - 15, dates_num_all.max() + 15)
+    ax.set_xlim(dates_num.min() - 15, dates_num.max() + 15)
     ax.set_ylim(0, alts.max() * 1.1)
 
     ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
@@ -232,8 +249,10 @@ if csv_source == "Локальный файл 'походы.csv'":
     try:
         df_raw = load_data_from_path(default_csv_path)
     except FileNotFoundError:
-        st.error("Файл 'походы.csv' не найден в текущей папке. "
-                 "Либо положите его рядом с app.py, либо выберите вариант 'Загрузить CSV'.")
+        st.error(
+            "Файл 'походы.csv' не найден в текущей папке. "
+            "Либо положите его рядом с app.py, либо выберите вариант 'Загрузить CSV'."
+        )
 else:
     if uploaded_file is not None:
         df_raw = load_data_from_uploaded(uploaded_file)
@@ -250,6 +269,7 @@ if df_raw is not None:
         total_hikes = len(df)
         total_distance = None
         total_ascent = None
+
         if "Расстояние" in df_raw.columns:
             try:
                 dist = (
@@ -261,6 +281,7 @@ if df_raw is not None:
                 total_distance = dist.sum()
             except Exception:
                 total_distance = None
+
         if "Подъем" in df_raw.columns:
             try:
                 climb = (
