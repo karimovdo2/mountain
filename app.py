@@ -31,7 +31,7 @@ if csv_source == "Загрузить CSV":
     uploaded_file = st.sidebar.file_uploader("Загрузите CSV с походами", type=["csv"])
 
     # Инструкции со скрином
-    with st.sidebar.expander("Инструкции"):
+    with st.sidebar.expander("Скрин с Инструкцией"):
         img_path = pathlib.Path("scrin.png")
         if img_path.is_file():
             st.image(str(img_path), use_column_width=True)
