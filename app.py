@@ -248,10 +248,11 @@ df_raw = None
 if csv_source == "Локальный файл 'походы.csv'":
     try:
         df_raw = load_data_from_path(default_csv_path)
-    except FileNotFoundError:
+    except Exception as e:  # ловим ЛЮБУЮ ошибку чтения, чтобы не уронить приложение
         st.error(
-            "Файл 'походы.csv' не найден в текущей папке. "
-            "Либо положите его рядом с app.py, либо выберите вариант 'Загрузить CSV'."
+            "Не удалось прочитать локальный файл 'походы.csv'. "
+            "Либо положите его рядом с app.py, либо выберите вариант 'Загрузить CSV'. "
+            f"Техническая ошибка: {e}"
         )
 else:
     if uploaded_file is not None:
@@ -320,3 +321,4 @@ if df_raw is not None:
                 dy_step=dy_step
             )
             st.pyplot(fig)
+
