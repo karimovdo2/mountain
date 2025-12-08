@@ -6,6 +6,8 @@ from matplotlib.ticker import FuncFormatter
 from glob import glob
 import streamlit as st
 import pathlib
+import gc  # <--- добавили
+
 
 st.set_page_config(page_title="Горный год", layout="wide")
 
@@ -127,7 +129,10 @@ def load_mountain_images(mountains_dir: str):
         raise FileNotFoundError(f"Не найдено ни одного PNG в папке: {mountains_dir}")
     imgs = []
     for p in paths:
-        img = plt.imread(p)
+        # читаем и сразу переводим в float32 (в 2 раза меньше памяти, чем float64)
+        img = plt.imread(p).astype("float32")
+
+        # обрезаем белые поля сверху/снизу
         rgb = img[..., :3]
         brightness = rgb.mean(axis=2)
         mask_rows = (brightness < 0.995).any(axis=1)
@@ -135,8 +140,13 @@ def load_mountain_images(mountains_dir: str):
             top = np.argmax(mask_rows)
             bottom = len(mask_rows) - 1 - np.argmax(mask_rows[::-1])
             img = img[top:bottom + 1, :, :]
+
+        # дополнительно уменьшаем картинку в 2 раза по ширине и высоте
+        img = img[::2, ::2, :]
+
         imgs.append(img)
     return imgs
+
 
 # ---------- Вспомогательные функции для графика ----------
 
@@ -239,7 +249,7 @@ def create_mountain_figure(
     ax.set_ylabel("Максимальная высота, м")
     ax.set_xlabel("Дата похода")
 
-    plt.tight_layout()
+    fig.tight_layout()
     return fig
 
 # ---------- Логика приложения ----------
@@ -320,7 +330,7 @@ if df_raw is not None:
                 base_offset=base_offset,
                 dy_step=dy_step
             )
-            st.pyplot(fig)
-            plt.close(fig)  # важно: освобождаем память под фигуру
-
+            st.pyplot(fig, clear_figure=True)
+            plt.close(fig)
+            gc.collect()
 
